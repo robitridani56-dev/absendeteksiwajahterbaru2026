@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Absensi Wajah — SMKN Rakit Kulim</title>
+<style>
+:root{--bg:#0a1a33;--ink:#eaf1ff;--mut:#7f93b8;--acc:#4f7cff;--ok:#2fd3a0;--warn:#ffb547;--bad:#ff6b6b}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;color:var(--ink);font:500 14px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;background:radial-gradient(1200px 700px at 50% -10%,#14376b,var(--bg) 70%)}
+button{font:inherit;color:inherit;cursor:pointer}
+#top{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:5}
+#top .ttl{font-weight:700;letter-spacing:.2px}
+#top .ttl small{display:block;color:var(--mut);font-weight:500;font-size:11px}
+#clock{position:absolute;left:50%;transform:translateX(-50%);font:700 22px ui-monospace,Menlo,monospace;letter-spacing:1px}
+#top .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:1px solid #2c4a82;border-radius:999px;background:#0f2447aa;font-size:13px}
+.chip.on{border-color:var(--acc);background:#1b3a7a}
+.chip b{color:var(--ok)}
+.ico{width:34px;padding:0;justify-content:center}
+#hud{position:fixed;left:16px;top:70px;font:11px/1.7 ui-monospace,Menlo,monospace;color:#cfe0ff;z-index:4;max-width:230px}
+#hud span{color:var(--mut);display:inline-block;width:62px}
+#hud #h-st.ok{color:var(--ok)}
+#stage{position:fixed;inset:56px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-bottom:20px}
+#cam{position:relative;height:min(62vh,560px);aspect-ratio:1/1.04;max-width:92vw;border-radius:22px;overflow:hidden;background:#000;box-shadow:0 20px 60px #0008}
+#vid,#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mir{transform:scaleX(-1)}
+.br{position:absolute;width:22px;height:22px;border:2px solid #fff9;pointer-events:none}
+.br.a{left:12px;top:12px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.br.b{right:12px;top:12px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.br.c{left:12px;bottom:12px;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.br.d{right:12px;bottom:12px;border-left:0;border-top:0;border-radius:0 0 8px 0}
+#oval{position:absolute;left:50%;top:46%;width:52%;height:66%;transform:translate(-50%,-50%);border:2px dashed #fff8;border-radius:50%;pointer-events:none;transition:border-color .2s}
+#cam.ok #oval{border-color:var(--ok)}
+#res{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;background:#5b6577cc;backdrop-filter:blur(14px) saturate(.7);-webkit-backdrop-filter:blur(14px) saturate(.7);padding:16px}
+#res.show{display:flex;animation:pop .25s ease-out}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+#ring{width:64px;height:64px;margin-bottom:4px}
+#ring circle{fill:none;stroke:var(--ok);stroke-width:2.5}
+#ring .sp{stroke-dasharray:40 100;transform-origin:center;animation:rot 1s linear infinite}
+#ring path{fill:none;stroke:var(--ok);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;display:none}
+#res.done #ring .sp{animation:none;stroke-dasharray:none}
+#res.done #ring path{display:block}
+@keyframes rot{to{transform:rotate(360deg)}}
+#r-st{font-size:22px;font-weight:600;color:var(--ok)}
+#res.late #r-st,#res.late #ring circle,#res.late #ring path{color:var(--warn);stroke:var(--warn)}
+#res.late #r-st{stroke:none}
+#res.out #r-st,#res.out #ring circle,#res.out #ring path{color:#6ea8ff;stroke:#6ea8ff}
+#res.out #r-st{stroke:none}
+#res.err #r-st{color:var(--bad)}
+#r-nm{font-size:24px;font-weight:700}
+#r-sub{color:#dbe6ff;font-size:13px}
+#r-msg{color:#c3d3f2;font-size:13px}
+#say{height:44px;font-size:30px;font-weight:700;color:#dce8ff;letter-spacing:.3px;min-width:200px;text-align:center}
+#say::after{content:"";display:inline-block;width:3px;height:.9em;background:var(--acc);margin-left:3px;vertical-align:-.1em;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:0}}
+#next{display:none;align-items:center;gap:8px;height:40px;padding:0 20px;border:0;border-radius:12px;background:var(--acc);font-weight:600;box-shadow:0 8px 24px #4f7cff55}
+#next.show{display:inline-flex}
+#side{position:fixed;right:16px;bottom:44px;width:260px;max-height:46vh;display:flex;flex-direction:column;background:#0b1e3d99;border:1px solid #1f3a6e;border-radius:16px;padding:12px;z-index:4;backdrop-filter:blur(8px)}
+#side h4{font:600 10px ui-monospace,Menlo,monospace;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase;margin-bottom:8px}
+#tabs{display:flex;gap:6px;margin-bottom:8px}
+#tabs button{border:0;border-radius:999px;padding:3px 8px;font-size:11px;background:#16305f;color:#9db4de}
+#tabs button.on{background:var(--acc);color:#fff}
+#list{list-style:none;padding:0;overflow:auto;font-size:12px}
+#list li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #16305f}
+#list li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#list li i{font:11px ui-monospace,monospace;color:var(--mut);font-style:normal}
+#list li.t i{color:var(--warn)}
+#list .e{color:var(--mut);border:0}
+#foot{position:fixed;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:18px;font:11px ui-monospace,Menlo,monospace;color:var(--mut);z-index:3}
+dialog{margin:auto;border:1px solid #2c4a82;border-radius:16px;background:#0c2044;color:var(--ink);padding:20px;width:min(380px,92vw)}
+dialog::backdrop{background:#000a}
+dialog h3{margin-bottom:12px}
+dialog input{width:100%;height:38px;margin-bottom:8px;padding:0 12px;border:1px solid #2c4a82;border-radius:10px;background:#081733;color:var(--ink);font:inherit}
+dialog .row{display:flex;gap:8px;margin-top:6px}
+dialog .row button{flex:1;height:38px;border:0;border-radius:10px;background:#1b3a7a;font-weight:600}
+dialog .row .p{background:var(--acc)}
+#e-st,#j-st,#d-st{min-height:20px;margin:6px 0;font-size:13px;color:var(--warn)}
+#dlg2{width:min(520px,94vw)}
+.two{display:flex;gap:8px}
+dialog select{width:100%;height:38px;margin-bottom:8px;padding:0 10px;border:1px solid #2c4a82;border-radius:10px;background:#081733;color:var(--ink);font:inherit}
+dialog input[type=date],dialog input[type=time]{color-scheme:dark}
+dialog table{width:100%;border-collapse:collapse;font-size:13px}
+dialog th{color:var(--mut);font:600 10px ui-monospace,monospace;text-align:left;padding:2px 4px;text-transform:uppercase}
+dialog td{padding:3px 4px}
+dialog td input{margin:0;height:34px;padding:0 6px}
+#side .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+#side .hd h4{margin:0}
+#b-dltoday{border:1px solid #2c4a82;border-radius:999px;padding:3px 10px;font-size:11px;background:#16305f;color:#cfe0ff;white-space:nowrap}
+#b-dltoday:hover{background:var(--acc);color:#fff}
+dialog .qk{display:flex;gap:6px;margin-bottom:8px}
+dialog .qk button{height:30px;padding:0 12px;border:1px solid #2c4a82;border-radius:999px;background:#0f2447;font-size:12px}
+dialog .chk{display:flex;align-items:center;gap:8px;margin:2px 0 6px;font-size:13px;color:#cfe0ff}
+dialog .chk input{width:auto;height:auto;margin:0}
+/* Dialog daftar wajah: di bawah layar, latar transparan, kamera tetap terlihat */
+#dlg{margin:auto auto 14px;padding:14px 16px;background:#0c2044ee}
+#dlg::backdrop{background:transparent}
+#dlg h3{margin-bottom:8px;font-size:15px}
+#dlg input{height:34px;margin-bottom:6px}
+#dlg .row{margin-top:2px}
+body.enr #stage{justify-content:flex-start;padding-top:8px}
+body.enr #cam{height:min(50vh,460px)}
+@media(max-width:820px){body.enr #cam{height:min(44vh,400px)}}
+@media(max-width:820px){#side{position:static;width:min(92vw,420px);max-height:22vh;margin-top:4px}#hud{display:none}#clock{display:none}#cam{height:min(46vh,420px)}#say{font-size:24px}}
+</style>
+</head>
+<body>
+<header id="top">
+  <div class="ttl">Absensi Wajah<small>SMKN Rakit Kulim</small></div>
+  <div id="clock">--.--.--</div>
+  <div class="sp"></div>
+  <button class="chip on" id="b-mesh">Wajah</button>
+  <button class="chip on" id="b-auto">Auto</button>
+  <button class="chip" id="b-mode">Mode: Otomatis</button>
+  <button class="chip" id="b-jdw">Jadwal</button>
+  <button class="chip" id="b-dl">Unduh</button>
+  <button class="chip on" id="b-mir">Cermin</button>
+  <span class="chip"><b id="cnt">0</b> Hadir</span>
+  <button class="chip ico on" id="b-snd" title="Suara">♪</button>
+  <button class="chip ico" id="b-set" title="Daftar wajah">⚙</button>
+</header>
+
+<div id="hud">
+  <div><span>STATUS</span><b id="h-st">MEMUAT</b></div>
+  <div><span>MODE</span><b id="h-md">OTOMATIS</b></div>
+  <div><span>JENIS</span><b id="h-jn">MASUK</b></div>
+  <div><span>GALERI</span><b id="h-gl">0</b></div>
+  <div><span>KAMERA</span><b id="h-cm">-</b></div>
+</div>
+
+<main id="stage">
+  <div id="cam" class="">
+    <video id="vid" class="mir" autoplay muted playsinline></video>
+    <canvas id="cv" class="mir"></canvas>
+    <div id="oval"></div>
+    <i class="br a"></i><i class="br b"></i><i class="br c"></i><i class="br d"></i>
+    <div id="res">
+      <svg id="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><circle class="sp" cx="32" cy="32" r="29"/><path d="M20 33l9 9 16-18"/></svg>
+      <div id="r-st">Hadir</div>
+      <div id="r-nm">-</div>
+      <div id="r-sub">-</div>
+      <div id="r-msg">-</div>
+    </div>
+  </div>
+  <div id="say"></div>
+  <button id="next">⌗ Pindai Berikutnya</button>
+</main>
+
+<aside id="side">
+  <div class="hd"><h4>Absensi hari ini</h4><button id="b-dltoday" title="Unduh rekap hari ini (CSV)">⬇ Hari ini</button></div>
+  <div id="tabs"><button class="on" data-t="Semua">Semua</button><button data-t="Hadir">Hadir</button><button data-t="Terlambat">Terlambat</button><button data-t="Pulang">Pulang</button></div>
+  <ul id="list"></ul>
+</aside>
+<div id="foot"><span id="f-fps">- fps</span><span id="f-dist">skor -</span><span id="f-mode">Demo lokal</span><span id="f-snd">ketuk layar untuk aktifkan suara</span></div>
+
+<dialog id="dlg">
+  <h3>Daftar Wajah Siswa</h3>
+  <input id="e-nis" placeholder="NIS" inputmode="numeric">
+  <input id="e-nama" placeholder="Nama lengkap">
+  <input id="e-kelas" placeholder="Kelas (mis. X TKJ 1)">
+  <div id="e-st"></div>
+  <div class="row"><button id="e-cap" class="p">Ambil 3 sampel</button><button id="e-x">Tutup</button></div>
+</dialog>
+
+<dialog id="dlg2">
+  <h3>Jadwal Absensi Senin–Jumat</h3>
+  <table id="jt"><thead><tr><th>Hari</th><th>Masuk</th><th>Batas telat</th><th>Pulang</th></tr></thead><tbody></tbody></table>
+  <div id="j-st"></div>
+  <div class="row"><button id="j-save" class="p">Simpan</button><button id="j-x">Tutup</button></div>
+</dialog>
+
+<dialog id="dlg3">
+  <h3>Unduh Rekap Absensi</h3>
+  <div class="qk"><button id="d-today" type="button">Hari ini</button><button id="d-yest" type="button">Kemarin</button></div>
+  <div class="two"><input id="d-dari" type="date"><input id="d-sampai" type="date"></div>
+  <select id="d-kelas"></select>
+  <label class="chk"><input type="checkbox" id="d-abs" checked> Sertakan siswa tidak hadir (laporan 1 hari)</label>
+  <div id="d-st"></div>
+  <div class="row"><button id="d-csv" class="p">Unduh CSV (Excel)</button><button id="d-pdf">Cetak / PDF</button></div>
+  <div class="row"><button id="d-x">Tutup</button></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script>
+/* ====== KONFIGURASI ====== */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwBzN20JnzNQwuKNsQxJlfn-W4FRrytNlahOfLSg1Lj4RnwYyy0cc6FfCxhdfvSL5mqZQ/exec';          // tempel URL Web App (…/exec). Kosong = mode demo lokal (localStorage)
+const THRESHOLD = 0.5;       // makin kecil makin ketat
+const MIN_FACE = 0.17;       // lebar wajah minimal (rasio lebar video) sebelum "Maju sedikit"
+const AUTO_MS = 3500;        // jeda kartu hasil pada mode Auto
+const MODEL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+
+const $ = s => document.querySelector(s);
+const vid = $('#vid'), cv = $('#cv'), cx = cv.getContext('2d'), cam = $('#cam');
+const S = {gal: [], hadir: new Map(), list: [], tab: 'Semua', auto: true, mesh: true, snd: true,
+           st: 'load', streak: {n: null, c: 0}, unk: 0, pin: '', t: null, mode: 'auto', cfg: {hari: defHari()}};
+const OPT = new faceapi.TinyFaceDetectorOptions({inputSize: 224, scoreThreshold: .5});
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ====== TEKS KETIK ====== */
+let tw = {txt: '', i: 0, id: null};
+function say(t) {
+  if (tw.txt === t) return;
+  tw.txt = t; tw.i = 0; clearInterval(tw.id);
+  $('#say').textContent = '';
+  tw.id = setInterval(() => {
+    $('#say').textContent = t.slice(0, ++tw.i);
+    if (tw.i >= t.length) clearInterval(tw.id);
+  }, 38);
+}
+
+/* ====== JAM & SUARA ====== */
+setInterval(() => {
+  $('#clock').textContent = new Date().toLocaleTimeString('id-ID').replace(/:/g, '.');
+  $('#h-jn').textContent = jenis().toUpperCase();
+  const hr = ymd();   // pergantian hari: kosongkan daftar hari ini agar tidak tercampur kemarin
+  if (S.day && S.day !== hr) { S.hadir.clear(); S.list = []; updCnt(); renderList(); }
+  S.day = hr;
+}, 1000);
+let ac;
+function beep(f1, f2) {
+  if (!S.snd) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    [f1, f2].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(ac.destination);
+      const t = ac.currentTime + i * .12;
+      g.gain.setValueAtTime(.15, t); g.gain.exponentialRampToValueAtTime(.001, t + .15);
+      o.start(t); o.stop(t + .16);
+    });
+  } catch (_) {}
+}
+
+/* ====== SUARA (menyebut nama) ====== */
+function speak(t) {
+  if (!S.snd || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(t); u.lang = 'id-ID'; u.rate = 1;
+    const v = speechSynthesis.getVoices().find(x => /^id/i.test(x.lang)); if (v) u.voice = v;
+    speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 250);   // setelah bunyi beep
+  } catch (_) {}
+}
+document.addEventListener('pointerdown', () => {   // kebijakan browser: suara butuh 1x interaksi
+  try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (_) {}
+  $('#f-snd').textContent = 'suara aktif';
+}, {once: true});
+
+/* ====== API (GAS / demo lokal) ====== */
+const hhmm = () => new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+const ymd = () => new Date().toLocaleDateString('en-CA');
+function defHari() { return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'].map(h => ({hari: h, masuk: '07:00', terlambat: '07:15', pulang: '15:00'})); }
+const HARI_N = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+function cfgToday() { const h = HARI_N[new Date().getDay()]; return S.cfg.hari.find(x => x.hari === h) || null; }
+function jenis() {   // 'masuk' | 'pulang' sesuai mode & jadwal hari ini
+  if (S.mode !== 'auto') return S.mode;
+  const c = cfgToday(); return hhmm() >= (c ? c.pulang : '15:00') ? 'pulang' : 'masuk';
+}
+function demoDB() { try { return JSON.parse(localStorage.getItem('af_demo')) || {siswa: [], abs: []}; } catch (_) { return {siswa: [], abs: []}; } }
+function demoSave(d) { try { localStorage.setItem('af_demo', JSON.stringify(d)); } catch (_) {} }
+async function api(a, p) {
+  if (GAS_URL) {
+    const r = a === 'init' ? await fetch(GAS_URL) : await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: a, ...p})});
+    return r.json();
+  }
+  const d = demoDB();
+  if (a === 'init') return {ok: true, gallery: d.siswa, today: d.abs.filter(x => x.tgl === ymd()), cfg: {hari: d.cfg || defHari()}};
+  if (a === 'rekap') return {ok: true, rows: d.abs.filter(x => x.tgl >= p.dari && x.tgl <= p.sampai)};
+  if (a === 'setCfg') { d.cfg = p.hari; demoSave(d); return {ok: true}; }
+  if (a === 'daftar') {
+    d.siswa = d.siswa.filter(x => x.nis !== p.nis);
+    d.siswa.push({nis: p.nis, nama: p.nama, kelas: p.kelas, d: p.d}); demoSave(d); return {ok: true};
+  }
+  if (a === 'absen') {
+    const s = d.siswa.find(x => x.nis === p.nis); if (!s) return {ok: false, error: 'NIS tidak terdaftar'};
+    const c = cfgToday() || {terlambat: '07:15', pulang: '15:00'}, jam = hhmm(), jn = p.jenis === 'pulang' ? 'pulang' : 'masuk';
+    let r = d.abs.find(x => x.tgl === ymd() && x.nis === p.nis);
+    const base = {ok: true, jenis: jn, nama: s.nama, kelas: s.kelas};
+    if (jn === 'masuk') {
+      if (r && r.jam) return {...base, dup: true, jam: r.jam, status: r.status, pulang: r.pulang || '', at: r.jam};
+      const status = jam > c.terlambat ? 'Terlambat' : 'Hadir';
+      if (r) { r.jam = jam; r.status = status; } else { r = {tgl: ymd(), nis: s.nis, nama: s.nama, kelas: s.kelas, jam, status, pulang: ''}; d.abs.push(r); }
+      demoSave(d); return {...base, dup: false, jam, status, pulang: r.pulang || '', at: jam};
+    }
+    if (r && r.pulang) return {...base, dup: true, jam: r.jam || '', status: r.status, pulang: r.pulang, at: r.pulang};
+    if (r) r.pulang = jam; else { r = {tgl: ymd(), nis: s.nis, nama: s.nama, kelas: s.kelas, jam: '', status: 'Tanpa Masuk', pulang: jam}; d.abs.push(r); }
+    demoSave(d); return {...base, dup: false, jam: r.jam || '', status: r.status, pulang: jam, at: jam, awal: jam < c.pulang};
+  }
+}
+
+/* ====== DAFTAR & SIDEBAR ====== */
+const fj = j => String(j).replace(':', '.');
+function updCnt() { $('#cnt').textContent = S.list.filter(r => r.jam).length; }
+function addRow(r) {
+  if (S.hadir.has(r.nis)) return;
+  S.hadir.set(r.nis, r); S.list.push(r); updCnt();
+}
+function removeRow(nis) {
+  S.hadir.delete(nis); S.list = S.list.filter(r => r.nis !== nis); updCnt();
+}
+function renderList() {
+  const T = S.tab;
+  const rows = S.list.filter(r => T === 'Semua' || (T === 'Pulang' ? r.pulang : r.jam && r.status === T)).slice().reverse().slice(0, 40);
+  $('#list').innerHTML = rows.length ? rows.map(r => {
+    const tm = T === 'Pulang' ? fj(r.pulang) : (r.jam ? fj(r.jam) : '—') + (r.pulang && T === 'Semua' ? ' → ' + fj(r.pulang) : '');
+    return `<li class="${r.status === 'Terlambat' ? 't' : ''}"><span>${esc(r.nama)}</span><i>${tm}</i></li>`;
+  }).join('') : '<li class="e">Belum ada data</li>';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  S.tab = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  renderList();
+});
+
+/* ====== KONTROL ====== */
+function tog(id, key, fn) {
+  $(id).onclick = () => { S[key] = !S[key]; $(id).classList.toggle('on', S[key]); fn && fn(); };
+}
+tog('#b-mesh', 'mesh', () => cx.clearRect(0, 0, cv.width, cv.height));
+tog('#b-auto', 'auto');
+const MODES = ['auto', 'masuk', 'pulang'], MN = {auto: 'Otomatis', masuk: 'Masuk', pulang: 'Pulang'};
+$('#b-mode').onclick = () => {
+  S.mode = MODES[(MODES.indexOf(S.mode) + 1) % 3];
+  $('#b-mode').textContent = 'Mode: ' + MN[S.mode]; $('#b-mode').classList.toggle('on', S.mode !== 'auto');
+  $('#h-md').textContent = MN[S.mode].toUpperCase(); $('#h-jn').textContent = jenis().toUpperCase();
+};
+tog('#b-snd', 'snd');
+$('#b-mir').onclick = () => {
+  $('#b-mir').classList.toggle('on'); vid.classList.toggle('mir'); cv.classList.toggle('mir');
+};
+$('#next').onclick = next;
+
+function setSt(t, ok) { $('#h-st').textContent = t; $('#h-st').classList.toggle('ok', !!ok); }
+
+/* ====== KAMERA ====== */
+async function startCam() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw {name: 'NoMedia'};
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user', width: {ideal: 640}, height: {ideal: 480}, frameRate: {ideal: 30}}, audio: false});
+  } catch (e) {
+    if (e.name === 'NotAllowedError' || e.name === 'SecurityError') throw e;
+    stream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});  // fallback kamera apa saja
+  }
+  vid.srcObject = stream; await vid.play();
+  const lbl = stream.getVideoTracks()[0].label || 'camera 1, facing front';
+  $('#h-cm').textContent = lbl.length > 26 ? lbl.slice(0, 25) + '…' : lbl;
+}
+function camMsg(e) {
+  const m = {NoMedia: 'Kamera butuh HTTPS / localhost', NotAllowedError: 'Izin kamera ditolak — izinkan lalu ketuk layar',
+    SecurityError: 'Kamera diblokir — buka lewat HTTPS', NotFoundError: 'Kamera tidak ditemukan',
+    NotReadableError: 'Kamera dipakai aplikasi lain', OverconstrainedError: 'Kamera tidak cocok'};
+  return m[e && e.name] || 'Kamera gagal: ' + ((e && e.message) || e);
+}
+cam.addEventListener('click', () => { if (S.st === 'nocam') location.reload(); });
+
+/* ====== MESH WAJAH (render 60 fps, terpisah dari deteksi) ====== */
+const clearCv = () => cx.clearRect(0, 0, cv.width, cv.height);
+const ACTIVE = ['idle', 'seek', 'far'];
+function nearest(P) {
+  return P.map((a, i) => P.map((b, j) => [Math.hypot(a[0] - b[0], a[1] - b[1]), j])
+    .filter(x => x[1] !== i).sort((x, y) => x[0] - y[0]).slice(0, 3).map(x => x[1]));
+}
+function render() {
+  requestAnimationFrame(render);
+  const W = cam.clientWidth, H = cam.clientHeight;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  cx.clearRect(0, 0, W, H);
+  const T = S.tgt;
+  if (!S.mesh || !T || !vid.videoWidth || !ACTIVE.includes(S.st)) { S.cur = null; return; }
+  if (!S.cur) { S.cur = T.map(p => p.slice()); S.nb = nearest(T); }
+  else S.cur.forEach((c, i) => { c[0] += (T[i][0] - c[0]) * .4; c[1] += (T[i][1] - c[1]) * .4; });
+  const vw = vid.videoWidth, vh = vid.videoHeight, sc = Math.max(W / vw, H / vh);
+  const ox = (W - vw * sc) / 2, oy = (H - vh * sc) / 2;
+  const P = S.cur.map(p => [p[0] * sc + ox, p[1] * sc + oy]);
+  const col = S.streak.c ? '#2fd3a0aa' : '#78beffaa';
+  cx.strokeStyle = col; cx.lineWidth = .8; cx.beginPath();
+  P.forEach((a, i) => S.nb[i].forEach(j => { cx.moveTo(a[0], a[1]); cx.lineTo(P[j][0], P[j][1]); }));
+  cx.stroke(); cx.fillStyle = col;
+  P.forEach(p => { cx.beginPath(); cx.arc(p[0], p[1], 1.4, 0, 6.3); cx.fill(); });
+}
+
+/* ====== PENGENALAN ====== */
+function match(d) {
+  let b2 = 81, bg = null;
+  for (const g of S.gal) for (const x of g.ds) {
+    let s = 0;
+    for (let i = 0; i < 128 && s < b2; i++) { const t = d[i] - x[i]; s += t * t; }
+    if (s < b2) { b2 = s; bg = g; }
+  }
+  return {d: Math.sqrt(b2), g: bg};
+}
+let fpsT = performance.now(), fr = 0, lastDesc = 0;
+async function loop() {
+  for (;;) {
+    try {
+      if (ACTIVE.includes(S.st)) await step(); else { S.tgt = null; await sleep(60); }
+    } catch (e) { console.error(e); await sleep(200); }
+    if (++fr >= 10) { const n = performance.now(); $('#f-fps').textContent = (fr * 1000 / (n - fpsT)).toFixed(0) + ' fps'; fr = 0; fpsT = n; }
+    await sleep(0);
+  }
+}
+async function step() {
+  // 1) deteksi + landmark tiap frame (ringan) -> mesh mulus
+  const all = await faceapi.detectAllFaces(vid, OPT).withFaceLandmarks(true);
+  if (!ACTIVE.includes(S.st)) return;
+  if (!all.length) {
+    S.tgt = null; cam.classList.remove('ok');
+    S.st = 'idle'; S.streak = {n: null, c: 0}; S.unk = 0; setSt('SIAGA'); say('Menunggu wajah...'); return;
+  }
+  const f = all.reduce((a, b) => b.detection.box.area > a.detection.box.area ? b : a);
+  S.tgt = f.landmarks.positions.map(p => [p.x, p.y]);
+  if (f.detection.box.width / vid.videoWidth < MIN_FACE) {
+    S.st = 'far'; S.streak = {n: null, c: 0}; setSt('SIAGA'); say('Maju sedikit'); return;
+  }
+  S.st = 'seek'; setSt('MEMINDAI', true);
+  if (!S.gal.length) { say('Galeri kosong — daftar wajah'); return; }
+  // 2) descriptor (berat) hanya untuk wajah terbesar & di-throttle
+  const n = performance.now();
+  if (n - lastDesc < 100) return;
+  lastDesc = n;
+  const [crop] = await faceapi.extractFaces(vid, [f.alignedRect]);
+  const desc = await faceapi.computeFaceDescriptor(crop);
+  if (!ACTIVE.includes(S.st)) return;
+  const m = match(desc);
+  $('#f-dist').textContent = 'skor ' + m.d.toFixed(2);
+  if (m.g && m.d < THRESHOLD) {
+    S.unk = 0; cam.classList.add('ok');
+    S.streak = S.streak.n === m.g.nis ? {n: m.g.nis, c: S.streak.c + 1} : {n: m.g.nis, c: 1};
+    say('Mengenali wajah...');
+    if (S.streak.c >= 2 || m.d < THRESHOLD - .12) success(m.g);   // sangat yakin => langsung
+  } else {
+    cam.classList.remove('ok'); S.streak = {n: null, c: 0};
+    say(++S.unk > 6 ? 'Wajah belum terdaftar' : 'Mengenali wajah...');
+  }
+}
+
+/* ====== HASIL ====== */
+function showRes(cls, st, nm, sub, msg, done) {
+  const r = $('#res'); r.className = 'show ' + cls + (done ? ' done' : '');
+  $('#r-st').textContent = st; $('#r-nm').textContent = nm; $('#r-sub').textContent = sub; $('#r-msg').textContent = msg;
+}
+function view(g, r, sound) {   // r: {jenis, status, at, dup, awal}
+  const out = r.jenis === 'pulang', late = r.status === 'Terlambat';
+  const lbl = r.dup ? (out ? 'Sudah Pulang' : 'Sudah Absen') : out ? (r.awal ? 'Pulang Awal' : 'Pulang') : r.status;
+  showRes(out ? 'out' : late ? 'late' : '', lbl, g.nama, `NIS ${g.nis} · ${out ? 'Pulang' : r.status} ${fj(r.at)}`,
+    r.dup ? `${g.nama} sudah tercatat ${out ? 'pulang' : 'hadir'} hari ini` : `${g.nama} ditandai ${out ? 'pulang' : r.status.toLowerCase()}`, true);
+  say(r.dup ? 'Sudah absen' : out ? 'Sampai jumpa' : 'Berhasil');
+  if (!sound) return;
+  const nm = g.nama.toLowerCase();
+  if (r.dup) { beep(520, 520); speak(nm + ', sudah absen'); }
+  else if (out) { beep(880, 660); speak(nm + ', pulang. Hati-hati di jalan'); }
+  else { beep(660, 880); speak(nm + ', ' + (late ? 'terlambat' : 'hadir')); }
+}
+async function success(g) {
+  S.st = 'result'; S.tgt = null; clearCv(); clearTimeout(S.t);
+  const tok = S.tok = {}, jn = jenis(), c = cfgToday(), now = hhmm();
+  setSt('SELESAI', true); $('#next').classList.add('show');
+  if (S.auto) S.t = setTimeout(next, AUTO_MS);
+  if (!c && GAS_URL) {   // Sabtu/Minggu: tidak ada jadwal
+    showRes('err', 'Libur', g.nama, 'NIS ' + g.nis, 'Hari ini tidak ada jadwal absensi (Senin–Jumat)', false); beep(220, 180); say('Libur'); return;
+  }
+  const cc = c || {terlambat: '07:15', pulang: '15:00'};
+  const prev = S.hadir.get(g.nis);
+  const dupT = prev && (jn === 'pulang' ? prev.pulang : prev.jam);
+  if (dupT) { view(g, {jenis: jn, dup: true, status: prev.status, at: dupT}, true); return; }
+  // tampilkan hasil SEKETIKA, server dikonfirmasi di belakang layar
+  const row = {nis: g.nis, nama: g.nama, kelas: g.kelas, jam: prev ? prev.jam : '', status: prev ? prev.status : '', pulang: prev ? prev.pulang : ''};
+  if (jn === 'masuk') { row.jam = now; row.status = now > cc.terlambat ? 'Terlambat' : 'Hadir'; }
+  else { row.pulang = now; if (!prev) row.status = 'Tanpa Masuk'; }
+  view(g, {jenis: jn, dup: false, status: row.status, at: now, awal: jn === 'pulang' && now < cc.pulang}, true);
+  removeRow(g.nis); addRow(row); renderList();
+  let r;
+  try { r = await api('absen', {nis: g.nis, jenis: jn}); } catch (e) { r = {ok: false, error: 'Gagal terhubung ke server'}; }
+  removeRow(g.nis);
+  if (r && r.ok) addRow({nis: g.nis, nama: r.nama, kelas: r.kelas, jam: r.jam, status: r.status, pulang: r.pulang});
+  else if (prev) addRow(prev);
+  renderList();
+  if (S.tok !== tok || S.st !== 'result') return;
+  if (!r || !r.ok) {
+    showRes('err', 'Gagal', g.nama, 'NIS ' + g.nis, (r && r.error) || 'Terjadi kesalahan', false);
+    beep(220, 180); say('Gagal');
+    clearTimeout(S.t); if (S.auto) S.t = setTimeout(next, AUTO_MS + 1500);
+  } else if (r.dup || r.status !== row.status) view(g, r, false);
+}
+function next() {
+  clearTimeout(S.t); $('#res').className = ''; $('#next').classList.remove('show');
+  cam.classList.remove('ok'); S.streak = {n: null, c: 0}; S.unk = 0; S.st = 'idle'; setSt('SIAGA'); say('Menunggu wajah...');
+}
+
+/* ====== PENDAFTARAN WAJAH ====== */
+const dlg = $('#dlg');
+$('#b-set').onclick = () => { document.body.classList.add('enr'); S.stPrev = S.st; S.st = 'enroll'; setSt('DAFTAR'); $('#e-st').textContent = ''; dlg.showModal(); };
+const closeDlg = () => { document.body.classList.remove('enr'); dlg.close(); if (S.st === 'enroll') next(); };
+$('#e-x').onclick = closeDlg; dlg.addEventListener('cancel', () => setTimeout(closeDlg));
+$('#e-cap').onclick = async () => {
+  const nis = $('#e-nis').value.trim(), nama = $('#e-nama').value.trim(), kelas = $('#e-kelas').value.trim(), st = $('#e-st');
+  if (!nis || !nama) { st.textContent = 'NIS dan nama wajib diisi'; return; }
+  if (GAS_URL && !S.pin) { S.pin = prompt('PIN admin:') || ''; if (!S.pin) return; }
+  $('#e-cap').disabled = true; const ds = [];
+  for (let i = 0; i < 3; i++) {
+    st.textContent = `Lihat kamera… sampel ${i + 1}/3`; await sleep(900);
+    let f = null;
+    for (let k = 0; k < 6 && !f; k++) { f = await faceapi.detectSingleFace(vid, OPT).withFaceLandmarks(true).withFaceDescriptor(); if (!f) await sleep(300); }
+    if (!f) { st.textContent = 'Wajah tidak terdeteksi, coba lagi'; $('#e-cap').disabled = false; return; }
+    ds.push(Array.from(f.descriptor).map(v => +v.toFixed(3)));
+  }
+  st.textContent = 'Menyimpan…';
+  try {
+    const r = await api('daftar', {pin: S.pin, nis, nama, kelas, d: ds});
+    if (!r.ok) { if (/PIN/.test(r.error)) S.pin = ''; throw new Error(r.error); }
+    S.gal = S.gal.filter(g => g.nis !== nis);
+    S.gal.push({nis, nama, kelas, d: ds, ds: ds.map(a => new Float32Array(a))});
+    $('#h-gl').textContent = S.gal.length;
+    st.textContent = '✓ Tersimpan: ' + nama; $('#e-nis').value = $('#e-nama').value = '';
+  } catch (e) { st.textContent = 'Gagal: ' + e.message; }
+  $('#e-cap').disabled = false;
+};
+
+/* ====== JADWAL (ADMIN) ====== */
+const dlg2 = $('#dlg2');
+function drawJ() {
+  $('#jt tbody').innerHTML = S.cfg.hari.map((h, i) => `<tr><td>${h.hari}</td>` +
+    ['masuk', 'terlambat', 'pulang'].map(k => `<td><input type="time" data-i="${i}" data-k="${k}" value="${h[k]}"></td>`).join('') + '</tr>').join('');
+}
+$('#b-jdw').onclick = () => { S.st = 'enroll'; setSt('ADMIN'); drawJ(); $('#j-st').textContent = ''; dlg2.showModal(); };
+const closeJ = () => { dlg2.close(); if (S.st === 'enroll') next(); };
+$('#j-x').onclick = closeJ; dlg2.addEventListener('cancel', () => setTimeout(closeJ));
+$('#j-save').onclick = async () => {
+  const st = $('#j-st'), hari = S.cfg.hari.map(h => ({...h}));
+  dlg2.querySelectorAll('input').forEach(i => { hari[+i.dataset.i][i.dataset.k] = i.value; });
+  for (const h of hari) {
+    if (!h.masuk || !h.terlambat || !h.pulang) { st.textContent = 'Semua jam wajib diisi (' + h.hari + ')'; return; }
+    if (!(h.masuk <= h.terlambat && h.terlambat < h.pulang)) { st.textContent = 'Urutan jam ' + h.hari + ': masuk ≤ batas telat < pulang'; return; }
+  }
+  if (GAS_URL && !S.pin) { S.pin = prompt('PIN admin:') || ''; if (!S.pin) return; }
+  st.textContent = 'Menyimpan…';
+  try {
+    const r = await api('setCfg', {pin: S.pin, hari});
+    if (!r.ok) { if (/PIN/.test(r.error)) S.pin = ''; throw new Error(r.error); }
+    S.cfg.hari = hari; st.textContent = '✓ Jadwal tersimpan';
+  } catch (e) { st.textContent = 'Gagal: ' + e.message; }
+};
+
+/* ====== UNDUH REKAP (masuk + pulang) ====== */
+const dlg3 = $('#dlg3');
+$('#b-dl').onclick = () => {
+  S.st = 'enroll'; setSt('ADMIN');
+  $('#d-dari').value = $('#d-sampai').value = ymd();
+  const ks = [...new Set([...S.gal.map(g => g.kelas), ...S.list.map(r => r.kelas)].filter(Boolean))].sort();
+  $('#d-kelas').innerHTML = '<option value="">Semua kelas</option>' + ks.map(k => `<option>${esc(k)}</option>`).join('');
+  $('#d-st').textContent = ''; dlg3.showModal();
+};
+const closeD = () => { dlg3.close(); if (S.st === 'enroll') next(); };
+$('#d-x').onclick = closeD; dlg3.addEventListener('cancel', () => setTimeout(closeD));
+const ket = r => r.status === 'Tidak Hadir' ? 'Tidak hadir' : r.jam && r.pulang ? 'Lengkap' : r.jam ? 'Belum pulang' : 'Tanpa masuk';
+const hariAktif = d => S.cfg.hari.some(h => h.hari === HARI_N[new Date(d + 'T00:00:00').getDay()]);
+const tglId = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+const geser = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); };
+$('#d-today').onclick = () => { $('#d-dari').value = $('#d-sampai').value = ymd(); };
+$('#d-yest').onclick = () => { $('#d-dari').value = $('#d-sampai').value = geser(-1); };
+
+/* Susun baris rekap; untuk laporan 1 hari (hari sekolah) siswa terdaftar yang tak punya catatan ditambahkan sebagai "Tidak Hadir" */
+function susun(rows, dari, sampai, kelas, withAbs) {
+  const out = rows.filter(x => !kelas || x.kelas === kelas);
+  if (withAbs && dari === sampai && hariAktif(dari)) {
+    const ada = new Set(out.map(r => String(r.nis)));
+    S.gal.forEach(g => {
+      if ((!kelas || g.kelas === kelas) && !ada.has(String(g.nis)))
+        out.push({tgl: dari, nis: g.nis, nama: g.nama, kelas: g.kelas, jam: '', status: 'Tidak Hadir', pulang: ''});
+    });
+  }
+  const k = x => (x.tgl || '') + '|' + (x.kelas || '') + '|' + (x.nama || '');
+  return out.sort((a, b) => k(a).localeCompare(k(b)));
+}
+async function getRekap() {
+  const dari = $('#d-dari').value, sampai = $('#d-sampai').value, kelas = $('#d-kelas').value, st = $('#d-st');
+  if (!dari || !sampai || dari > sampai) { st.textContent = 'Rentang tanggal tidak valid'; return null; }
+  if (GAS_URL && !S.pin) { S.pin = prompt('PIN admin:') || ''; if (!S.pin) return null; }
+  st.textContent = 'Mengambil data…';
+  try {
+    const r = await api('rekap', {pin: S.pin, dari, sampai});
+    if (!r.ok) { if (/PIN/.test(r.error)) S.pin = ''; throw new Error(r.error); }
+    const rows = susun(r.rows, dari, sampai, kelas, $('#d-abs').checked);
+    if (!rows.length) { st.textContent = 'Tidak ada data absensi pada rentang ini'; return null; }
+    const nAbs = rows.filter(x => x.status === 'Tidak Hadir').length;
+    st.textContent = '✓ ' + rows.length + ' baris' + (nAbs ? ` (termasuk ${nAbs} tidak hadir)` : '');
+    return {rows, dari, sampai, kelas};
+  } catch (e) { st.textContent = 'Gagal: ' + e.message; return null; }
+}
+function saveCsv(g) {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const lines = [['Tanggal', 'NIS', 'Nama', 'Kelas', 'Jam Masuk', 'Status', 'Jam Pulang', 'Keterangan'].map(q).join(';')]
+    .concat(g.rows.map(r => [r.tgl, r.nis, r.nama, r.kelas, r.jam, r.status, r.pulang, ket(r)].map(q).join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
+  a.download = `absensi_${g.dari === g.sampai ? 'harian_' + g.dari : g.dari + '_sd_' + g.sampai}${g.kelas ? '_' + g.kelas.replace(/\s+/g, '-') : ''}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function printPdf(g) {
+  const by = {}; g.rows.forEach(r => (by[r.kelas || '-'] = by[r.kelas || '-'] || []).push(r));
+  const one = g.dari === g.sampai, per = one ? tglId(g.dari) : g.dari + ' s/d ' + g.sampai;
+  const c = s => g.rows.filter(r => r.status === s).length;
+  const sum = one ? `<p class="sm">Hadir <b>${c('Hadir')}</b> · Terlambat <b>${c('Terlambat')}</b> · Tidak hadir <b>${c('Tidak Hadir')}</b>` +
+    (c('Tanpa Masuk') ? ` · Tanpa masuk <b>${c('Tanpa Masuk')}</b>` : '') + ` · Total <b>${g.rows.length}</b></p>` : '';
+  const body = Object.keys(by).sort().map(k => `<h3>Kelas ${esc(k)} · ${per}</h3><table><tr><th>No</th><th>NIS</th><th>Nama</th><th>Tanggal</th><th>Masuk</th><th>Status</th><th>Pulang</th><th>Ket.</th></tr>` +
+    by[k].map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.nis)}</td><td>${esc(r.nama)}</td><td>${esc(r.tgl)}</td><td>${esc(r.jam || '-')}</td><td>${esc(r.status || '-')}</td><td>${esc(r.pulang || '-')}</td><td>${ket(r)}</td></tr>`).join('') + '</table>').join('');
+  const w = window.open('', '_blank');
+  if (!w) return false;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rekap Absensi</title><style>body{font:12px system-ui,sans-serif;margin:20px}h2{margin:0 0 4px}.sm{margin:0 0 6px;font-size:13px}h3{margin:18px 0 6px;page-break-before:always}h3:first-of-type{page-break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:3px 6px;text-align:left}th{background:#eee}</style></head><body><h2>Rekap Absensi ${one ? 'Harian' : 'Masuk &amp; Pulang'} — SMKN Rakit Kulim</h2>${sum}${body}</body></html>`);
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
+  return true;
+}
+$('#d-csv').onclick = async () => { const g = await getRekap(); if (g) saveCsv(g); };
+$('#d-pdf').onclick = async () => {
+  const g = await getRekap(); if (!g) return;
+  if (!printPdf(g)) $('#d-st').textContent = 'Pop-up diblokir — izinkan pop-up untuk situs ini';
+};
+
+/* Unduh cepat satu ketukan: rekap HARI INI dari data yang sudah tampil di layar (tanpa PIN) */
+$('#b-dltoday').onclick = () => {
+  const b = $('#b-dltoday'), t = ymd();
+  const rows = susun(S.list.map(r => ({...r, tgl: t})), t, t, '', true);
+  if (rows.length) saveCsv({rows, dari: t, sampai: t, kelas: ''});
+  b.textContent = rows.length ? '✓ Terunduh' : 'Belum ada data';
+  setTimeout(() => { b.textContent = '⬇ Hari ini'; }, 2000);
+};
+
+/* ====== MULAI ====== */
+(async function boot() {
+  $('#f-mode').textContent = GAS_URL ? 'Google Sheets' : 'Demo lokal';
+  if (/googleusercontent\.com$|^script\.google\.com$/.test(location.hostname)) {
+    setSt('ERROR'); say('Buka file ini di hosting sendiri, bukan di dalam GAS'); return;
+  }
+  // 1) KAMERA DULU — langsung menyala, tidak menunggu model/server
+  say('Menyalakan kamera...');
+  let camOk = true;
+  try { await startCam(); } catch (e) { camOk = false; S.st = 'nocam'; setSt('KAMERA?'); say(camMsg(e)); console.error(e); }
+  // 2) model
+  say('Memuat model...');
+  try {
+    try { faceapi.tf.enableProdMode(); await faceapi.tf.setBackend('webgl'); await faceapi.tf.ready(); } catch (_) {}
+    await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL), faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL)]);
+  } catch (e) { console.error(e); setSt('ERROR'); say('Gagal memuat model (cek internet)'); return; }
+  // 3) data dari Spreadsheet — kalau gagal, kamera tetap jalan
+  if (camOk) say('Memuat galeri...');
+  try {
+    const d = await api('init');
+    if (!d.ok) throw new Error(d.error || 'init gagal');
+    S.gal = d.gallery.map(g => ({...g, ds: g.d.map(a => new Float32Array(a))}));
+    if (d.cfg && d.cfg.hari && d.cfg.hari.length) S.cfg.hari = d.cfg.hari;
+    d.today.forEach(addRow); renderList();
+    $('#h-gl').textContent = S.gal.length;
+  } catch (e) { console.error(e); $('#f-mode').textContent = 'Server gagal'; $('#h-gl').textContent = 'ERR'; }
+  if (!camOk) return;
+  say('Memanaskan model...');
+  try {  // warm-up WebGL
+    await faceapi.detectAllFaces(vid, OPT).withFaceLandmarks(true);
+    const w = document.createElement('canvas'); w.width = w.height = 150; await faceapi.computeFaceDescriptor(w);
+  } catch (_) {}
+  S.st = 'idle'; setSt('SIAGA'); say('Menunggu wajah...'); render(); loop();
+})();
+renderList();
+</script>
+</body>
+</html>
